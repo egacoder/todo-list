@@ -8,15 +8,14 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  unit:
+    name: Модульные тесты
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,17 +24,36 @@ jobs:
           node-version: 22
       - run: npm test
 
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: test
+  e2e:
+    name: Браузерные тесты (Playwright)
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  deploy:
+    name: Публикация на GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: [unit, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Собрать сайт
-        run: mkdir _site && cp -r index.html css js _site/
+        run: |
+          mkdir _site
+          cp -r index.html sw.js manifest.webmanifest css js icons _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 *.log
 todo-list.zip
+test-results/
+playwright-report/

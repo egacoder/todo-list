@@ -1,12 +1,20 @@
 {
   "name": "todo-list",
   "version": "1.0.0",
-  "description": "Простой и аккуратный список задач на чистом JavaScript",
+  "description": "Аккуратный список задач на чистом JavaScript: офлайн, перетаскивание, тёмная тема",
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "npx --yes serve@14.2.4 .",
-    "test": "node --test"
+    "start": "node scripts/serve.js",
+    "test": "node --test",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }

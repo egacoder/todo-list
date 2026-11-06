@@ -13,6 +13,13 @@ import {
   saveTasks,
   normalizeTitle,
   pluralize,
+  toggleImportant,
+  setAllCompleted,
+  snapshotRemoval,
+  restoreTasks,
+  moveTask,
+  createMemoryStorage,
+  resolveStorage,
   STORAGE_KEY,
   MAX_TITLE_LENGTH,
 } from '../js/store.js';
@@ -171,4 +178,117 @@ describe('pluralize', () => {
   ]) {
     test(`${n} ${expected}`, () => assert.equal(pluralize(n, forms), expected));
   }
+});
+
+describe('важные задачи и «отметить все»', () => {
+  const tasks = ['A', 'B', 'C'].reduce(addTask, []);
+
+  test('toggleImportant', () => {
+    const next = toggleImportant(tasks, tasks[1].id);
+    assert.equal(next[1].important, true);
+    assert.equal(toggleImportant(next, tasks[1].id)[1].important, false);
+    assert.equal(next[0].important, false);
+  });
+
+  test('setAllCompleted', () => {
+    const all = setAllCompleted(tasks, true);
+    assert.ok(all.every((t) => t.completed));
+    assert.ok(setAllCompleted(all, false).every((t) => !t.completed));
+  });
+
+  test('setAllCompleted не пересоздаёт неизменённые задачи', () => {
+    const next = setAllCompleted(tasks, false);
+    assert.ok(next.every((t, i) => t === tasks[i]));
+  });
+});
+
+describe('точечная отмена удаления', () => {
+  const tasks = ['A', 'B', 'C', 'D'].reduce(addTask, []); // [D, C, B, A]
+  const id = (list, title) => list.find((t) => t.title === title).id;
+
+  test('возвращает задачу на прежнее место', () => {
+    const removed = snapshotRemoval(tasks, (t) => t.title === 'B');
+    const after = removeTask(tasks, id(tasks, 'B'));
+    assert.deepEqual(restoreTasks(after, removed).map((t) => t.title), ['D', 'C', 'B', 'A']);
+  });
+
+  test('не теряет изменения, сделанные после удаления', () => {
+    const removed = snapshotRemoval(tasks, (t) => t.title === 'C');
+    let after = removeTask(tasks, id(tasks, 'C'));
+    after = addTask(after, 'E');
+    after = toggleTask(after, id(after, 'A'));
+    const restored = restoreTasks(after, removed);
+    assert.deepEqual(restored.map((t) => t.title), ['E', 'D', 'C', 'B', 'A']);
+    assert.equal(restored.find((t) => t.title === 'A').completed, true);
+  });
+
+  test('восстанавливает несколько задач (очистка выполненных)', () => {
+    let list = toggleTask(tasks, id(tasks, 'D'));
+    list = toggleTask(list, id(list, 'B'));
+    const removed = snapshotRemoval(list, (t) => t.completed);
+    const restored = restoreTasks(clearCompleted(list), removed);
+    assert.deepEqual(restored.map((t) => t.title), ['D', 'C', 'B', 'A']);
+  });
+
+  test('не дублирует уже существующие задачи', () => {
+    const removed = snapshotRemoval(tasks, (t) => t.title === 'A');
+    assert.equal(restoreTasks(tasks, removed).length, 4);
+  });
+
+  test('индекс за пределами списка — вставка в конец', () => {
+    const removed = snapshotRemoval(tasks, (t) => t.title === 'A');
+    assert.deepEqual(restoreTasks([], removed).map((t) => t.title), ['A']);
+  });
+});
+
+describe('moveTask', () => {
+  const tasks = ['A', 'B', 'C', 'D'].reduce(addTask, []).reverse(); // [A, B, C, D]
+  const [a, b, c, d] = tasks;
+  const titles = (l) => l.map((t) => t.title).join('');
+
+  test('перемещение вниз и вверх', () => {
+    assert.equal(titles(moveTask(tasks, a.id, c.id, 'after')), 'BCAD');
+    assert.equal(titles(moveTask(tasks, d.id, a.id, 'before')), 'DABC');
+    assert.equal(titles(moveTask(tasks, b.id, d.id, 'after')), 'ACDB');
+  });
+
+  test('некорректные аргументы не меняют список', () => {
+    assert.equal(moveTask(tasks, a.id, a.id), tasks);
+    assert.equal(moveTask(tasks, 'нет', a.id), tasks);
+    assert.equal(moveTask(tasks, a.id, 'нет'), tasks);
+  });
+});
+
+describe('надёжность хранилища', () => {
+  test('дубликаты id отбрасываются', () => {
+    const json = JSON.stringify([
+      { id: '1', title: 'первая', completed: false },
+      { id: '1', title: 'дубль', completed: true },
+    ]);
+    const tasks = parseTasks(json);
+    assert.equal(tasks.length, 1);
+    assert.equal(tasks[0].title, 'первая');
+  });
+
+  test('старые данные без поля important читаются', () => {
+    const [task] = parseTasks(JSON.stringify([{ id: '1', title: 'x', completed: false, createdAt: 5 }]));
+    assert.equal(task.important, false);
+    assert.equal(task.createdAt, 5);
+  });
+
+  test('resolveStorage: рабочее хранилище', () => {
+    const native = createMemoryStorage();
+    const { storage, persistent } = resolveStorage(() => native);
+    assert.equal(storage, native);
+    assert.equal(persistent, true);
+  });
+
+  test('resolveStorage: запрет доступа → память', () => {
+    const { storage, persistent } = resolveStorage(() => {
+      throw new Error('SecurityError');
+    });
+    assert.equal(persistent, false);
+    storage.setItem('k', 'v');
+    assert.equal(storage.getItem('k'), 'v');
+  });
 });

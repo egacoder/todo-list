@@ -16,6 +16,7 @@
   --success: #16a34a;
   --danger: #e5484d;
   --danger-soft: rgba(229, 72, 77, 0.1);
+  --star: #f59e0b;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 32px -8px rgba(16, 24, 40, 0.12);
   --radius: 16px;
   --radius-sm: 10px;
@@ -105,6 +106,10 @@ button {
 
 [hidden] {
   display: none !important;
+}
+
+html:not(.is-ready) * {
+  transition: none !important;
 }
 
 :focus-visible {
@@ -272,6 +277,10 @@ button {
 }
 
 .link-btn:hover {
+  color: var(--accent);
+}
+
+.link-btn--danger:hover {
   color: var(--danger);
 }
 
@@ -280,7 +289,6 @@ button {
   display: flex;
   gap: 10px;
   padding: 16px;
-  border-bottom: 1px solid var(--border);
 }
 
 .new-task__input {
@@ -303,6 +311,25 @@ button {
   border-color: var(--accent);
   background: var(--surface);
   box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.new-task__error {
+  margin: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.new-task__error:not(:empty) {
+  margin-top: -6px;
+  padding: 0 16px 10px;
+}
+
+.new-task__input[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 4px var(--danger-soft);
 }
 
 .new-task--shake .new-task__input {
@@ -333,6 +360,10 @@ button {
   border-radius: 99px;
   background: var(--surface-2);
   overflow: hidden;
+}
+
+.progress--done .progress__fill {
+  background: linear-gradient(90deg, var(--success), #4ade80);
 }
 
 .progress__fill {
@@ -403,10 +434,11 @@ button {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-height: 56px;
-  padding: 8px 8px 8px 10px;
+  padding: 8px 8px 8px 2px;
   border-radius: 12px;
+  background: var(--surface);
   transition: background-color 0.15s;
 }
 
@@ -414,7 +446,7 @@ button {
   content: "";
   position: absolute;
   top: 0;
-  left: 46px;
+  left: 64px;
   right: 10px;
   height: 1px;
   background: var(--border);
@@ -462,13 +494,81 @@ button {
 .task__actions {
   display: flex;
   gap: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
 }
 
-.task:hover .task__actions,
-.task:focus-within .task__actions {
+.task__actions .icon-btn,
+.task__handle {
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background-color 0.15s;
+}
+
+.task:hover .icon-btn,
+.task:focus-within .icon-btn,
+.task:hover .task__handle,
+.task:focus-within .task__handle,
+.task--important .icon-btn--star {
   opacity: 1;
+}
+
+/* Ручка перетаскивания */
+.task__handle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-faint);
+  cursor: grab;
+  touch-action: none;
+}
+
+.task__handle svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.task__handle:hover,
+.task__handle:focus-visible {
+  color: var(--text-muted);
+}
+
+.is-sorting,
+.is-sorting * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.is-sorting .task:not(.is-dragging) {
+  transition: transform 0.2s var(--ease);
+}
+
+.is-sorting .task::before {
+  opacity: 0;
+}
+
+.task.is-dragging {
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: 0 12px 28px -6px rgba(16, 24, 40, 0.25), 0 0 0 1px var(--border);
+  transition: box-shadow 0.2s;
+}
+
+/* Важная задача */
+.icon-btn--star:hover {
+  color: var(--star);
+}
+
+.task--important .icon-btn--star {
+  color: var(--star);
+}
+
+.task--important .icon-btn--star .icon {
+  fill: var(--star);
 }
 
 .task--editing .task__actions {
@@ -476,8 +576,24 @@ button {
 }
 
 @media (hover: none) {
-  .task__actions {
+  .task__actions .icon-btn,
+  .task__handle {
     opacity: 1;
+  }
+  .icon-btn--sm {
+    width: 36px;
+    height: 40px;
+  }
+  .task__handle {
+    width: 24px;
+    height: 40px;
+  }
+  .task {
+    gap: 8px;
+    padding-right: 2px;
+  }
+  .task__actions {
+    gap: 0;
   }
 }
 
@@ -589,9 +705,10 @@ button {
 /* ===== Подвал ===== */
 .card__footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   margin-top: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
@@ -599,9 +716,16 @@ button {
   color: var(--text-muted);
 }
 
+.card__footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
 .hint {
   margin: 20px 0 0;
   font-size: 13px;
+  line-height: 2;
   color: var(--text-faint);
   text-align: center;
 }
@@ -617,7 +741,13 @@ kbd {
 }
 
 @media (hover: none) {
-  .hint {
+  .card__footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.hint {
     display: none;
   }
 }
@@ -626,7 +756,7 @@ kbd {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   z-index: 10;
   display: flex;
   align-items: center;
@@ -673,6 +803,15 @@ kbd {
 
 .toast__action:hover {
   background: rgba(255, 255, 255, 0.18);
+}
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .noscript {
